@@ -1,6 +1,6 @@
 # Reproducible Research: Peer Assessment 1
 
-This investigates step counts, aggregated to 5 minute intervals.
+This investigates step counts, aggregated to 5 minute intervals. The assignment data was delivered as a zip file. That was hand unzipped to create activity.csv which is loaded just below this.
 
 ## Loading and preprocessing the data
 
@@ -19,11 +19,11 @@ str(StepTimeSeries)
 ##  - attr(*, ".internal.selfref")=<externalptr>
 ```
 
-Note that date was read in as character data. That's OK for our purposes. Also note that step is an int which is OK but that logically it is the name of a 5 minute interval in hhmm format.
+Note that date was read in as character data. That's OK for our purposes. Also note that steps is an int which is OK but that logically it is the name of a 5 minute interval in hhmm format.
 
 ## What is mean total number of steps taken per day?
 
-This analysis assumes that days for which the data are missing are days in which no steps were taken.
+This part of this analysis assumes that days for which the data are missing are days in which no steps were taken.
 
 ```r
 StepsPerDay = StepTimeSeries[,sum(steps,na.rm=T),by=date]
@@ -31,7 +31,7 @@ MeanStepsPerDay=StepsPerDay[,mean(V1)]
 MedianStepsPerDay=StepsPerDay[,median(V1)]
 hist(StepsPerDay$V1,breaks=20,main='Steps Per Day',
      xlab='Number of Steps (Green Line Shows Mean, Gray Shows Median)',
-     ylab='Number of Days',col='lightblue')
+     ylab='Number of Days with Indicated Step Count',col='lightblue')
 abline(v=MeanStepsPerDay,col='green',lwd=3)
 abline(v=MedianStepsPerDay,col='darkgrey',lwd=3)
 ```
@@ -49,7 +49,7 @@ The median day recorded 10395 steps and the mean number of steps per day was 935
 StepsPerInterval = StepTimeSeries[,sum(steps,na.rm=T),by=interval]
 invisible(StepsPerInterval[,StepsPerIntervalPerDay:=V1/nrow(StepsPerDay)])
 with(StepsPerInterval,plot(interval,StepsPerIntervalPerDay,type='l',xlab='5 minute intervals, 0 is midnight',
-                           ylab='Steps per Day',main='Mean number of steps for each interval'))
+    ylab='Average Steps per Day per Interval',main='Mean number of steps for each interval'))
 ```
 
 ![](PA1_template_files/figure-html/unnamed-chunk-3-1.png) 
@@ -76,9 +76,13 @@ That's a lot of NAs! So the results reported here so far are skewed. To reduce t
 ```r
 NonNATimeSeries = StepTimeSeries[!is.na(StepTimeSeries$step)]
 NonNAStepsPerInterval = NonNATimeSeries[,sum(steps),by=interval]
+# The below is a quick and dirty approximation which could be improved by averaging
+# over the non NA days for each interval rather than all days in the dataset.
 invisible(NonNAStepsPerInterval[,NonNAStepsPerIntervalPerDay:=V1/nrow(StepsPerDay)])
 setkey(StepTimeSeries,interval) # So we can join on interval
 ImputeTS = StepTimeSeries[NonNAStepsPerInterval]
+# ImputeTS now has everything in the original dataset plus an extra variable ImputedSteps
+# which has the NA values replaced with the imputed values.
 invisible(ImputeTS[,ImputedSteps:=NonNAStepsPerIntervalPerDay])
 ImputeTS$ImputedSteps[!is.na(ImputeTS$steps)] = ImputeTS$steps[!is.na(ImputeTS$steps)]
 # Now repeat the earlier analysis but include the imputed values instead of 0 for NA
@@ -103,7 +107,9 @@ Let's plot the steps per interval on stacked plots, one for weekend days and the
 
 
 ```r
+# Add a new factor variable to the dataset that indicates Weekday vs. Weekend.
 ImputeTS$DayOfWeekType = factor(as.integer(as.POSIXlt(ImputeTS$date)$wday %in% c(0,6)))
+# Set the level text to make it easier to use the factor.
 levels(ImputeTS$DayOfWeekType) = c('Weekday','Weekend')
 StepsPerIntervalAndDoWT = ImputeTS[,sum(ImputedSteps),by='interval,DayOfWeekType']
 StepsPerDay$DayOfWeekType = factor(as.integer(as.POSIXlt(StepsPerDay$date)$wday %in% c(0,6)))
@@ -113,8 +119,7 @@ setkey(StepsPerIntervalAndDoWT,DayOfWeekType)
 invisible(StepsPerIntervalAndDoWT[DoWTCounts,Ave:=V1/N])
 with(StepsPerIntervalAndDoWT,coplot(Ave~interval|DayOfWeekType,type='l',show.given=F,columns=1,
                                     ylab='Weekdays   Steps per Day   Weekend',
-                                    main='Mean number of steps for each interval',
-                                    xlab='5 minute intervals, 0 is midnight'))
+        xlab=c('5 minute intervals, 0 is midnight','Mean number of steps for each interval')))
 ```
 
 ![](PA1_template_files/figure-html/unnamed-chunk-6-1.png) 
